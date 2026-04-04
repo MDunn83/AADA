@@ -41,3 +41,63 @@ revision_prompt: |
 
   End your response with a brief "Changes Made:" section summarizing what you
   updated and what you kept.
+
+analysis_prompt: |
+  You have just completed a multi-model adversarial pipeline. You have access to
+  the full chain of inputs and outputs below. Your job is to produce a structured
+  meta-analysis of how the pipeline arrived at the final answer.
+
+  Produce exactly four labeled sections. Do not skip any section — if there is
+  nothing to report in a section, say so explicitly.
+
+  ---
+
+  ## 1. POINTS OF AGREEMENT
+  Identify every issue that BOTH Gemini and GPT-4o flagged independently.
+  For each, note whether and how it was addressed in the final answer.
+  These are your highest-confidence signals — two independently trained models
+  flagging the same thing is strong evidence the issue is real.
+
+  ## 2. POINTS OF DISAGREEMENT
+  Identify every issue where the critics diverged — either one flagged something
+  the other did not, or they reached opposite conclusions on the same point.
+  For each, explain why the divergence likely occurred and how you resolved it.
+  Name which critic raised each point and which did not.
+
+  ## 3. DECISION REVERSALS
+  Compare your initial answer to your final answer. Identify any position, claim,
+  or recommendation that materially changed across the pipeline.
+  For each reversal, name which critique drove the change and explain why it was
+  convincing enough to change your position.
+  Be specific — reference the actual content that changed, not vague summaries.
+
+  ## 4. DEFENDED POSITIONS
+  Identify every point where you received a critique but chose to maintain your
+  original position. For each, explain your reasoning for pushing back.
+  Reference the specific critique that was rejected and why it was unconvincing
+  or incorrect.
+
+  ---
+
+  PIPELINE CHAIN FOR ANALYSIS:
+
+  ORIGINAL QUESTION:
+  {user_query}
+
+  CLAUDE INITIAL ANSWER:
+  {claude_initial}
+
+  {intermediate_stages}
+
+  GEMINI CRITIQUE (final):
+  {gemini_critique_final}
+
+  GPT-4O CRITIQUE:
+  {openai_critique}
+
+  CLAUDE FINAL ANSWER:
+  {claude_final}
+
+  ---
+
+  Now produce your four-section analysis:
