@@ -10,14 +10,14 @@ AADA is a multi-model AI pipeline that stress-tests responses by automatically r
 
 Most AI tools give you a confident answer. AADA gives you a **battle-tested** one.
 
-V2.6 runs up to three competing models (Claude, Gemini, GPT-4o) across four modes, with an optional disagreement analysis that surfaces exactly how the pipeline arrived at its final answer.
+V3 runs up to three competing models (Claude, Gemini, GPT-4o) across four modes. In Fast 3 and Deep 3, Gemini and GPT-4o critique simultaneously — neither sees the other's output, producing truly independent perspectives. An optional disagreement analysis surfaces exactly how the pipeline arrived at its final answer.
 
 | Mode | Models | API Calls | Description |
 |------|--------|-----------|-------------|
 | **Fast 2** | Claude + Gemini | 3 | Claude answers → Gemini critiques → Claude revises |
 | **Deep 2** | Claude + Gemini | 5 | Two full adversarial passes — Gemini critiques the *revision*, not just the original |
-| **Fast 3** | Claude + Gemini + GPT-4o | 4 (5 with analysis) | Claude answers → Gemini AND GPT-4o critique → Claude revises |
-| **Deep 3** | Claude + Gemini + GPT-4o | 7 (8 with analysis) | Deep 2 extended with a GPT-4o critique pass before the final revision |
+| **Fast 3** | Claude + Gemini + GPT-4o | 3 (4 with analysis) | Claude answers → Gemini AND GPT-4o critique in parallel → Claude revises |
+| **Deep 3** | Claude + Gemini + GPT-4o | 6 (7 with analysis) | Two parallel critique passes, Claude revises after each |
 
 ### Fast 2 Flow (3 calls)
 ```
@@ -30,24 +30,26 @@ Your Query → Claude answers → Gemini critiques → Claude revises
            → Gemini critiques the revision → Claude final revision
 ```
 
-### Fast 3 Flow (4 calls)
+### Fast 3 Flow (3 calls — critics run in parallel)
 ```
-Your Query → Claude answers → Gemini critiques
-           → GPT-4o critiques (sees Claude's answer + Gemini critique)
-           → Claude final revision (incorporates both critiques)
+Your Query → Claude answers → Gemini ──┐
+                                        ├─ both critique simultaneously → Claude final revision
+                              GPT-4o ──┘
 ```
 
-### Deep 3 Flow (7 calls)
+### Deep 3 Flow (6 calls — both passes run critics in parallel)
 ```
-Your Query → Claude answers → Gemini critiques → Claude revises (pass 1)
-           → Gemini critiques the revision → Claude revises (pass 2)
-           → GPT-4o critiques pass 2 (sees full chain history)
-           → Claude final revision (all critiques incorporated)
+Your Query → Claude answers → Gemini ──┐
+                                        ├─ pass 1 critique → Claude revises
+                              GPT-4o ──┘
+                            → Gemini ──┐
+                                        ├─ pass 2 critique → Claude final revision
+                              GPT-4o ──┘
 ```
 
 ---
 
-## Disagreement Analysis (V2.6)
+## Disagreement Analysis
 
 Fast 3 and Deep 3 include an optional disagreement analysis call — opt in via checkbox (Streamlit) or `y/n` prompt (CLI). It adds one Claude call after the pipeline completes and produces a four-section structured report:
 
@@ -106,7 +108,7 @@ OPENAI_API_KEY=sk-...        # only required for Fast 3 and Deep 3
 ### 4. Run the CLI
 
 ```
-python aada_v26.py
+python aada_v3.py
 ```
 
 You'll be prompted for your query, mode selection, and whether to include disagreement analysis.
@@ -114,7 +116,7 @@ You'll be prompted for your query, mode selection, and whether to include disagr
 ### 5. Or run the Streamlit UI
 
 ```
-streamlit run aada_streamlit_v26.py
+streamlit run aada_streamlit_v3.py
 ```
 
 Opens automatically in your browser at `http://localhost:8501`. Leave the terminal window open while using it — closing it kills the app.
@@ -125,8 +127,10 @@ Opens automatically in your browser at `http://localhost:8501`. Leave the termin
 
 ```
 AADA/
-├── aada_v26.py              # CLI version — current (V2.6)
-├── aada_streamlit_v26.py    # Streamlit UI version — current (V2.6)
+├── aada_v3.py               # CLI version — current (V3)
+├── aada_streamlit_v3.py     # Streamlit UI version — current (V3)
+├── aada_v26.py              # CLI version — V2.6 (preserved)
+├── aada_streamlit_v26.py    # Streamlit UI version — V2.6 (preserved)
 ├── aada_v25.py              # CLI version — V2.5 (preserved)
 ├── aada_streamlit.py        # Streamlit UI version — V2.5 (preserved)
 ├── aada_mvp_v2_r1.py        # Original V2 script (preserved)
@@ -168,10 +172,11 @@ Models are configured at the top of each script:
 
 * **Mode selector** — radio buttons in the sidebar showing mode name, call count, and description
 * **Disagreement analysis checkbox** — appears in sidebar for Fast 3 and Deep 3, unchecked by default
-* **Live progress indicators** — each step shows ⏳ waiting → 🔄 running → ✅ complete in real time
+* **Rotating thinking messages** — cycles through seven messages every 15 seconds while the pipeline runs
 * **Final answer at the top** — visible without scrolling on a standard laptop
 * **Critique Analysis expander** — open by default, directly below the final answer (when opted in)
-* **Collapsed pipeline stage expanders** — labelled by step number, model, and role
+* **Collapsed pipeline stage expanders** — labelled by step number, model, and role including separate Gemini and GPT-4o entries
+* **Parallel timing metrics** — shows how long each critic took per pass for Fast 3 and Deep 3
 * **Usage & cost summary** — tokens per model and estimated USD cost after every run
 * **Download button** — grab the full JSON audit trail directly from the browser
 
@@ -189,14 +194,19 @@ Every run saves a timestamped JSON file (e.g. `aada_result_20260403_221539.json`
                 "gemini_input_tokens", "gemini_output_tokens",
                 "openai_input_tokens", "openai_output_tokens",
                 "estimated_cost_usd" },
+  "parallel_timings": {
+    "pass_1": { "gemini_seconds": 0.0, "openai_seconds": 0.0 },
+    "pass_2": { "gemini_seconds": 0.0, "openai_seconds": 0.0 }
+  },
   "user_query": "...",
   "stages": {
     "claude_initial":    "...",
     "gemini_critique_1": "...",
+    "openai_critique_1": "...",
     "claude_revised_1":  "...",
     "gemini_critique_2": "...",
+    "openai_critique_2": "...",
     "claude_revised_2":  "...",
-    "openai_critique":   "...",
     "claude_final":      "..."
   },
   "final_answer":          "...",
@@ -221,9 +231,9 @@ All three API clients (Anthropic, Google, OpenAI) retry failed calls up to 3 tim
 | **V1** | CLI proof of concept — single Claude→Gemini→Claude pass | ✅ Complete |
 | **V2** | Fast/Deep modes, retry logic, token tracking, prompt config | ✅ Complete |
 | **V2.5** | Four modes, GPT-4o, Streamlit UI, JSON audit trail | ✅ Complete |
-| **V2.6** | Opt-in disagreement analysis — agreement, disagreement, reversals, defended positions | ✅ Current |
-| **V3** | Parallel critique — Gemini and GPT-4o critique simultaneously, async architecture | 🔜 Next |
-| **V3.5** | Dynamic routing — automatic second pass triggered by critic disagreement | 📋 Planned |
+| **V2.6** | Opt-in disagreement analysis — agreement, disagreement, reversals, defended positions | ✅ Complete |
+| **V3** | Parallel critique — Gemini and GPT-4o critique simultaneously, async architecture | ✅ Current |
+| **V3.5** | Dynamic routing — automatic second pass triggered by critic disagreement | 🔜 Next |
 | **V4** | Web application — browser UI, user auth, report history, streaming output | 📋 Planned |
 | **V5** | Commercial product — billing, public API, team collaboration, export options | 📋 Planned |
 
