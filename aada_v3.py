@@ -498,8 +498,8 @@ def save_results(data: dict) -> str:
 MODES = {
     "1": ("fast2", "Fast 2", 3, "Claude + Gemini  | Claude → Gemini critique → Claude revision"),
     "2": ("deep2", "Deep 2", 5, "Claude + Gemini  | Two full adversarial passes"),
-    "3": ("fast3", "Fast 3", 3, "Claude + Gemini + GPT-4o  | Parallel critique → Claude revision"),
-    "4": ("deep3", "Deep 3", 6, "Claude + Gemini + GPT-4o  | Two parallel critique passes"),
+    "3": ("fast3", "Fast 3", 4, "Claude + Gemini + GPT-4o  | Claude → Gemini & GPT-4o simultaneously → Claude revision"),
+    "4": ("deep3", "Deep 3", 7, "Claude + Gemini + GPT-4o  | Two simultaneous critique passes, Claude revises after each"),
 }
 
 
@@ -615,8 +615,7 @@ def main():
     print("\n" + "=" * 60)
     print("✅ PIPELINE COMPLETE")
     print("=" * 60)
-    print(f"\nFINAL ANSWER:\n{stages['claude_final']}")
-
+    
     if disagreement_analysis:
         print("\n" + "=" * 60)
         print("🔍 DISAGREEMENT ANALYSIS")

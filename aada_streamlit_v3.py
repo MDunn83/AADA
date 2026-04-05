@@ -4,7 +4,6 @@ AADA V3 - Adversarial AI Decision Analyzer (Streamlit UI)
 What's new in V3:
   - Parallel critique architecture for Fast 3 and Deep 3
   - Gemini and GPT-4o critique simultaneously — neither sees the other
-  - Rotating "thinking" messages every 15s while pipeline runs
   - Disagreement analysis carried forward from V2.6
   - Fast 2 and Deep 2 completely unchanged from V2.6
 
@@ -16,8 +15,8 @@ import os
 import json
 import time
 import asyncio
-import threading
 import yaml
+import threading
 import anthropic
 import streamlit as st
 from google import genai
@@ -47,16 +46,6 @@ CLAUDE_COST_PER_1K = {"input": 0.00025,  "output": 0.00125}
 GEMINI_COST_PER_1K = {"input": 0.000075, "output": 0.0003}
 OPENAI_COST_PER_1K = {"input": 0.005,    "output": 0.015}
 
-THINKING_MESSAGES = [
-    "🧪 The models are arguing. This is a good sign.",
-    "🔪 Gemini and GPT-4o are sharpening their knives...",
-    "🛡️ Claude is defending its position...",
-    "☕ The answer is brewing, stay with us.",
-    "🔬 Cross-examining the evidence...",
-    "⚔️ The adversarial process is doing its work...",
-    "🤔 Two critics, one answer. Almost there.",
-]
-
 MODES = [
     {
         "key":         "fast2",
@@ -75,16 +64,16 @@ MODES = [
     {
         "key":         "fast3",
         "label":       "Fast 3",
-        "calls":       3,
+        "calls":       4,
         "models":      "Claude + Gemini + GPT-4o",
-        "description": "Claude answers, Gemini AND GPT-4o critique in parallel, Claude revises.",
+        "description": "Claude → Gemini & GPT-4o critique simultaneously → Claude revision.",
     },
     {
         "key":         "deep3",
         "label":       "Deep 3",
-        "calls":       6,
+        "calls":       7,
         "models":      "Claude + Gemini + GPT-4o",
-        "description": "Two parallel critique passes, Claude revises after each.",
+        "description": "Two simultaneous critique passes, Claude revises after each.",
     },
 ]
 
@@ -432,7 +421,6 @@ PIPELINE_FNS = {
     "deep3": run_deep3,
 }
 
-
 # ──────────────────────────────────────────────
 # FILE OUTPUT
 # ──────────────────────────────────────────────
@@ -444,35 +432,6 @@ def save_results(data: dict) -> str:
         json.dump(data, f, indent=2)
     return filename
 
-
-# ──────────────────────────────────────────────
-# ROTATING THINKING MESSAGES
-# Runs in a background thread, updating a Streamlit
-# placeholder every 15 seconds while the pipeline executes.
-# ──────────────────────────────────────────────
-
-def start_thinking_rotator(placeholder):
-    """
-    Starts a background thread that cycles through THINKING_MESSAGES
-    every 15 seconds, updating the given Streamlit placeholder.
-    Returns a stop_event the caller can set to halt the thread.
-    """
-    stop_event = threading.Event()
-
-    def rotate():
-        idx = 0
-        while not stop_event.is_set():
-            placeholder.markdown(
-                f"<div style='font-size:1.1rem; color:#555; padding:12px 0;'>"
-                f"{THINKING_MESSAGES[idx % len(THINKING_MESSAGES)]}</div>",
-                unsafe_allow_html=True,
-            )
-            stop_event.wait(15)
-            idx += 1
-
-    t = threading.Thread(target=rotate, daemon=True)
-    t.start()
-    return stop_event
 
 
 # ──────────────────────────────────────────────
@@ -546,10 +505,6 @@ if run_button:
     st.markdown("---")
     st.subheader(f"⚡ Running {selected_mode['label']} ({call_label})")
 
-    # Start rotating thinking messages
-    thinking_slot = st.empty()
-    stop_thinking = start_thinking_rotator(thinking_slot)
-
     usage      = empty_usage()
     start_time = time.time()
     timings    = {}
@@ -557,13 +512,9 @@ if run_button:
     try:
         stages, timings = PIPELINE_FNS[mode_key](user_query, prompts, usage)
     except EnvironmentError as e:
-        stop_thinking.set()
-        thinking_slot.empty()
         st.error(str(e))
         st.stop()
     except RuntimeError as e:
-        stop_thinking.set()
-        thinking_slot.empty()
         st.error(f"Pipeline error: {e}")
         st.stop()
 
@@ -579,10 +530,6 @@ if run_button:
             disagreement_analysis = run_analysis(stages, user_query, prompts, usage)
         except Exception as e:
             st.warning(f"Analysis call failed: {e}")
-
-    # Stop the rotator and clear the placeholder
-    stop_thinking.set()
-    thinking_slot.empty()
 
     elapsed = round(time.time() - start_time, 2)
 

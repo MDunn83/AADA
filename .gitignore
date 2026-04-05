@@ -1,5 +1,7 @@
 .env
 *.json
 __pycache__/
+Archive/
+Results/
 *.pyc
 AADA_Requirements.docx

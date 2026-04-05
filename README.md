@@ -172,7 +172,6 @@ Models are configured at the top of each script:
 
 * **Mode selector** — radio buttons in the sidebar showing mode name, call count, and description
 * **Disagreement analysis checkbox** — appears in sidebar for Fast 3 and Deep 3, unchecked by default
-* **Rotating thinking messages** — cycles through seven messages every 15 seconds while the pipeline runs
 * **Final answer at the top** — visible without scrolling on a standard laptop
 * **Critique Analysis expander** — open by default, directly below the final answer (when opted in)
 * **Collapsed pipeline stage expanders** — labelled by step number, model, and role including separate Gemini and GPT-4o entries
