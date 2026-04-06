@@ -101,3 +101,35 @@ analysis_prompt: |
   ---
 
   Now produce your four-section analysis:
+
+routing_prompt: |
+  You are evaluating whether two AI critics materially disagreed in their
+  critiques of the same response. Your job is to make a binary judgment.
+
+  A MATERIAL disagreement means:
+  - One critic says a claim is correct; the other says it is wrong
+  - One critic recommends Action A; the other recommends Action B
+  - Both critics flag completely different missing topics that would pull
+    the revision in different directions
+  - One critic calls an issue fatal; the other calls it minor or acceptable
+  - One critic raises a significant concern the other completely ignores
+
+  NOT a material disagreement:
+  - Both critics flag the same issue with different wording
+  - One critic is detailed; the other is brief but reaches the same conclusion
+  - Critics agree on the problem but one adds more context than the other
+  - Minor differences in emphasis on the same point
+
+  Respond with ONLY valid JSON — no preamble, no explanation, no markdown.
+  Return exactly this structure:
+  {{"disagreement": true, "summary": "one sentence describing the disagreement"}}
+  or
+  {{"disagreement": false, "summary": "No material disagreement detected"}}
+
+  GEMINI CRITIQUE:
+  {gemini_critique}
+
+  GPT-4O CRITIQUE:
+  {openai_critique}
+
+  Your JSON response:

@@ -1,23 +1,36 @@
 # AADA — Adversarial AI Decision Analyzer
 
-> *"Before you make a big move, see how it could fail."*
+> *"Does your AI output seem "off"?  Stress test it."*
 
-AADA is a multi-model AI pipeline that stress-tests responses by automatically routing them through adversarial critique from competing AI models, then feeding those critiques back to the original model for a final, improved answer. The result is a more defensible, higher-confidence output than any single AI can produce alone — at a fraction of a cent per run.
+AADA is a multi-model AI pipeline that stress-tests responses by automatically routing them through adversarial critique from competing AI models, then feeding those critiques back to the original model for a final, improved answer. The result is a more defensible, higher-confidence output than any single AI can produce alone and at a fraction of a cent per run.  While this doesn't eliminate hallucinations or inaccurate results, it's a practical mitigator, as long as you understand what data each AI tool you're using has been trained on. 
 
 ---
+
+## The Road So Far
+
+| Version | Theme | Status |
+|---------|-------|--------|
+| **V1** | CLI proof of concept — single Claude→Gemini→Claude pass | ✅ Complete |
+| **V2** | Fast/Deep modes, retry logic, token tracking, prompt config | ✅ Complete |
+| **V2.5** | Four modes, GPT-4o, Streamlit UI, JSON audit trail | ✅ Complete |
+| **V2.6** | Opt-in disagreement analysis — agreement, disagreement, reversals, defended positions | ✅ Complete |
+| **V3** | Parallel critique — Gemini and GPT-4o critique simultaneously, async architecture | ✅ Complete |
+| **V3.5** | Dynamic routing — automatic second pass triggered by critic disagreement | ✅ Current |
 
 ## How It Works
 
 Most AI tools give you a confident answer. AADA gives you a **battle-tested** one.
 
-V3 runs up to three competing models (Claude, Gemini, GPT-4o) across four modes. In Fast 3 and Deep 3, Gemini and GPT-4o critique simultaneously — neither sees the other's output, producing truly independent perspectives. An optional disagreement analysis surfaces exactly how the pipeline arrived at its final answer.
+V3.5 runs up to three competing models (Claude, Gemini, GPT-4o) across four modes. In Fast 3 and Deep 3, Gemini and GPT-4o critique simultaneously — neither sees the other's output. An optional routing call evaluates critic disagreement after pass 1 and automatically triggers a second pass, if warranted. An optional disagreement analysis provides insight into exactly how the pipeline arrived at its final answer.
 
 | Mode | Models | API Calls | Description |
 |------|--------|-----------|-------------|
 | **Fast 2** | Claude + Gemini | 3 | Claude answers → Gemini critiques → Claude revises |
 | **Deep 2** | Claude + Gemini | 5 | Two full adversarial passes — Gemini critiques the *revision*, not just the original |
-| **Fast 3** | Claude + Gemini + GPT-4o | 3 (4 with analysis) | Claude answers → Gemini AND GPT-4o critique in parallel → Claude revises |
-| **Deep 3** | Claude + Gemini + GPT-4o | 6 (7 with analysis) | Two parallel critique passes, Claude revises after each |
+| **Fast 3** | Claude + Gemini + GPT-4o | 4–8 | Parallel critique, optional dynamic routing, optional analysis |
+| **Deep 3** | Claude + Gemini + GPT-4o | 7–11 | Two parallel passes, optional dynamic routing, optional analysis |
+
+Call counts for Fast 3 and Deep 3 vary based on options selected and whether routing triggers a second pass.
 
 ### Fast 2 Flow (3 calls)
 ```
@@ -30,20 +43,25 @@ Your Query → Claude answers → Gemini critiques → Claude revises
            → Gemini critiques the revision → Claude final revision
 ```
 
-### Fast 3 Flow (3 calls — critics run in parallel)
+### Fast 3 Flow (4 calls base — critics run in parallel)
 ```
 Your Query → Claude answers → Gemini ──┐
+                                        ├─ both critique simultaneously → Claude revision (pass 1)
+                              GPT-4o ──┘
+             [optional routing call] → if disagreement detected:
+                              Gemini ──┐
                                         ├─ both critique simultaneously → Claude final revision
                               GPT-4o ──┘
 ```
 
-### Deep 3 Flow (6 calls — both passes run critics in parallel)
+### Deep 3 Flow (7 calls base — both passes run critics in parallel)
 ```
 Your Query → Claude answers → Gemini ──┐
-                                        ├─ pass 1 critique → Claude revises
+                                        ├─ pass 1 critique → Claude revision (pass 1)
                               GPT-4o ──┘
-                            → Gemini ──┐
-                                        ├─ pass 2 critique → Claude final revision
+             [optional routing call] → if disagreement detected, pass 2 runs:
+                              Gemini ──┐
+                                        ├─ pass 2 critique → Claude revision (pass 2) → Claude final
                               GPT-4o ──┘
 ```
 
@@ -51,9 +69,9 @@ Your Query → Claude answers → Gemini ──┐
 
 ## Disagreement Analysis
 
-Fast 3 and Deep 3 include an optional disagreement analysis call — opt in via checkbox (Streamlit) or `y/n` prompt (CLI). It adds one Claude call after the pipeline completes and produces a four-section structured report:
+Fast 3 and Deep 3 include an optional disagreement analysis call.  You can opt into the analysis via checkbox (Streamlit) or `y/n` prompt (CLI). It adds one Claude call after the pipeline completes and produces a four-section structured report:
 
-**1. Points of Agreement** — issues both Gemini and GPT-4o flagged independently. Highest-confidence signals in the pipeline.
+**1. Points of Agreement** — issues both Gemini and GPT-4o flagged independently. Highest confidence signals in the pipeline.
 
 **2. Points of Disagreement** — where the critics diverged, why the divergence likely occurred, and how it was resolved.
 
@@ -61,7 +79,23 @@ Fast 3 and Deep 3 include an optional disagreement analysis call — opt in via 
 
 **4. Defended Positions** — critiques Claude received but chose to push back on, with its reasoning.
 
-This doesn't make the answer better — Deep 3 already produces the best answer the pipeline can generate. What it adds is **transparency into the reasoning process**, so you can understand and defend how the output was arrived at.
+This doesn't make the answer better since Deep 3 already produces the "best" answer the pipeline can generate. What it does add, however, is **transparency into the reasoning process**, so you can understand and defend how the LLM arrived at the output.
+
+---
+
+## Dynamic Routing (V3.5)
+
+Fast 3 and Deep 3 include an optional dynamic routing feature.  You can opt into the optional dynamic routing feature via checkbox (Streamlit) or `y/n` prompt (CLI).
+
+After Claude's pass 1 revision, a lightweight Claude call evaluates whether Gemini and GPT-4o materially disagreed. A material disagreement means the critics reached opposite conclusions, flagged completely different issues, or disagreed significantly on severity. Minor wording differences or the same concern expressed at different lengths do not qualify.
+
+If disagreement is detected: a second parallel critique pass runs automatically, followed by a Claude final revision incorporating both pass 2 critiques.
+
+If no disagreement is detected: Claude's pass 1 revision is promoted to final answer immediately with no additional calls.
+
+A hard cap of 2 passes is enforced regardless of what the second pass critics say.
+
+The routing decision is displayed visibly before the next step begins so you always know why the pipeline extended or finalized.
 
 ---
 
@@ -77,6 +111,8 @@ This doesn't make the answer better — Deep 3 already produces the best answer 
 * The "80% of clients will refer" statistic was labeled an industry myth and corrected to 20–30% with an explanation of why referral intent rarely translates to referral action.
 
 **Total cost: $0.02945. Elapsed time: 97 seconds.**
+
+These are MAJOR issues uncovered that the original output didn't acknowledge that could have lead a user down a terrible (and illegal) path.
 
 ---
 
@@ -108,15 +144,15 @@ OPENAI_API_KEY=sk-...        # only required for Fast 3 and Deep 3
 ### 4. Run the CLI
 
 ```
-python aada_v3.py
+python aada_v35.py
 ```
 
-You'll be prompted for your query, mode selection, and whether to include disagreement analysis.
+You'll be prompted for your query, mode selection, whether to enable dynamic routing, and whether to include disagreement analysis.
 
 ### 5. Or run the Streamlit UI
 
 ```
-streamlit run aada_streamlit_v3.py
+streamlit run aada_streamlit_v35.py
 ```
 
 Opens automatically in your browser at `http://localhost:8501`. Leave the terminal window open while using it — closing it kills the app.
@@ -127,13 +163,16 @@ Opens automatically in your browser at `http://localhost:8501`. Leave the termin
 
 ```
 AADA/
-├── aada_v3.py               # CLI version — current (V3)
-├── aada_streamlit_v3.py     # Streamlit UI version — current (V3)
+├── aada_v35.py              # CLI version — current (V3.5)
+├── aada_streamlit_v35.py    # Streamlit UI version — current (V3.5)
+├── aada_v3.py               # CLI version — V3 (preserved)
+├── aada_streamlit_v3.py     # Streamlit UI version — V3 (preserved)
 ├── aada_v26.py              # CLI version — V2.6 (preserved)
 ├── aada_streamlit_v26.py    # Streamlit UI version — V2.6 (preserved)
 ├── aada_v25.py              # CLI version — V2.5 (preserved)
 ├── aada_streamlit.py        # Streamlit UI version — V2.5 (preserved)
 ├── aada_mvp_v2_r1.py        # Original V2 script (preserved)
+├── test_routing.py          # Developer tool — routing calibration harness (not used by app)
 ├── prompts.yaml             # Shared prompt config — tune without touching any Python
 ├── .env                     # Your API keys (never commit this)
 ├── .env.example             # Key names with placeholder values — safe to commit
@@ -148,9 +187,9 @@ AADA/
 
 ## Configuration
 
-All prompts live in `prompts.yaml` and are shared between the CLI and Streamlit UI. Edit them to change how aggressively the critics operate, how Claude revises, or what the disagreement analysis focuses on — no Python required. Changes take effect immediately in both interfaces.
+All prompts live in `prompts.yaml` and are shared between the CLI and Streamlit UI. Edit them to change how aggressively the critics operate, how Claude revises, or what the disagreement analysis focuses on without requiring Python. Changes take effect immediately in both interfaces.
 
-`prompts.yaml` contains four prompts:
+`prompts.yaml` contains five prompts:
 
 | Prompt | Purpose |
 |--------|---------|
@@ -158,6 +197,7 @@ All prompts live in `prompts.yaml` and are shared between the CLI and Streamlit 
 | `critique_prompt` | Sent to Gemini and GPT-4o — defines what to look for |
 | `revision_prompt` | Sent to Claude with critique attached — defines how to revise |
 | `analysis_prompt` | Sent to Claude for disagreement analysis (Fast 3 / Deep 3 only) |
+| `routing_prompt` | Sent to Claude to evaluate critic disagreement (V3.5 routing only) |
 
 Models are configured at the top of each script:
 
@@ -171,11 +211,14 @@ Models are configured at the top of each script:
 ## Streamlit UI Features
 
 * **Mode selector** — radio buttons in the sidebar showing mode name, call count, and description
-* **Disagreement analysis checkbox** — appears in sidebar for Fast 3 and Deep 3, unchecked by default
+* **Dynamic routing checkbox** — "Automatically run a second critique pass if the models disagree"; appears for Fast 3 and Deep 3, unchecked by default
+* **Disagreement analysis checkbox** — appears for Fast 3 and Deep 3, unchecked by default
+* **Routing decision display** — shown mid-run before the next step, either "No disagreement detected, finalizing" or "Disagreement detected, running pass 2"
 * **Final answer at the top** — visible without scrolling on a standard laptop
 * **Critique Analysis expander** — open by default, directly below the final answer (when opted in)
 * **Collapsed pipeline stage expanders** — labelled by step number, model, and role including separate Gemini and GPT-4o entries
 * **Parallel timing metrics** — shows how long each critic took per pass for Fast 3 and Deep 3
+* **Routing decision metrics** — passes taken and whether disagreement was detected
 * **Usage & cost summary** — tokens per model and estimated USD cost after every run
 * **Download button** — grab the full JSON audit trail directly from the browser
 
@@ -188,7 +231,7 @@ Every run saves a timestamped JSON file (e.g. `aada_result_20260403_221539.json`
 ```json
 {
   "metadata": { "mode", "claude_model", "gemini_model", "openai_model",
-                "elapsed_seconds", "timestamp", "analysis_enabled" },
+                "elapsed_seconds", "timestamp", "routing_enabled", "analysis_enabled" },
   "usage":    { "claude_input_tokens", "claude_output_tokens",
                 "gemini_input_tokens", "gemini_output_tokens",
                 "openai_input_tokens", "openai_output_tokens",
@@ -196,6 +239,11 @@ Every run saves a timestamped JSON file (e.g. `aada_result_20260403_221539.json`
   "parallel_timings": {
     "pass_1": { "gemini_seconds": 0.0, "openai_seconds": 0.0 },
     "pass_2": { "gemini_seconds": 0.0, "openai_seconds": 0.0 }
+  },
+  "routing": {
+    "routing_decision": true,
+    "routing_summary":  "one sentence describing the disagreement",
+    "passes_taken":     2
   },
   "user_query": "...",
   "stages": {
@@ -223,7 +271,7 @@ All three API clients (Anthropic, Google, OpenAI) retry failed calls up to 3 tim
 
 ---
 
-## Roadmap
+## Full Roadmap
 
 | Version | Theme | Status |
 |---------|-------|--------|
@@ -231,9 +279,9 @@ All three API clients (Anthropic, Google, OpenAI) retry failed calls up to 3 tim
 | **V2** | Fast/Deep modes, retry logic, token tracking, prompt config | ✅ Complete |
 | **V2.5** | Four modes, GPT-4o, Streamlit UI, JSON audit trail | ✅ Complete |
 | **V2.6** | Opt-in disagreement analysis — agreement, disagreement, reversals, defended positions | ✅ Complete |
-| **V3** | Parallel critique — Gemini and GPT-4o critique simultaneously, async architecture | ✅ Current |
-| **V3.5** | Dynamic routing — automatic second pass triggered by critic disagreement | 🔜 Next |
-| **V4** | Web application — browser UI, user auth, report history, streaming output | 📋 Planned |
+| **V3** | Parallel critique — Gemini and GPT-4o critique simultaneously, async architecture | ✅ Complete |
+| **V3.5** | Dynamic routing — automatic second pass triggered by critic disagreement | ✅ Current |
+| **V4** | Web application — browser UI, user auth, report history, streaming output | 🔜 Next |
 | **V5** | Commercial product — billing, public API, team collaboration, export options | 📋 Planned |
 
 ---
@@ -242,7 +290,7 @@ All three API clients (Anthropic, Google, OpenAI) retry failed calls up to 3 tim
 
 Single-model AI has a known failure mode: it's a confident "yes-man." It answers in the direction of your question, fills gaps with plausible-sounding assumptions, and rarely volunteers what it doesn't know.
 
-AADA exploits the fact that Claude, Gemini, and GPT-4o are trained differently, on different data, with different tendencies. Disagreement between them is a signal — either one is wrong, or the question is genuinely uncertain. Either way, you want to know before you act.
+AADA exploits the fact that Claude, Gemini, and GPT-4o are trained differently, on different data, with different tendencies. Disagreement between them is a signal where either one is wrong, or the question is genuinely uncertain. Either way, you want to know before you act.
 
 The goal isn't perfection. It's a response you can actually defend.
 

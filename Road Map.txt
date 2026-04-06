@@ -1,0 +1,7 @@
+Here's the full roadmap doc. Here's the version logic at a glance:
+V1 (done) — The Python script we just built. Proves the concept works.
+V2 — Makes it actually usable. Configurable prompts, file output, retry logic, a "Changes Made" section so you can see what the critique actually improved.
+V3 — The intelligence upgrade. Multiple models vote, disagreements surface explicitly to the user, and confidence scores tag every claim. This is where it becomes genuinely hard to replicate with a single chatbot.
+V4 — Web app. The moment you want to hand this to someone who won't run a Python script, you need this layer. Streaming output is the key UX feature here.
+V5 — Commercial. Billing, public API, real market data, team features. Only worth building once V4 has proven users will pay.
+The doc also includes a "When to Move to the Next Version" section — each transition is gated on a real signal, not a timeline. That's intentional; you want evidence before adding complexity.
