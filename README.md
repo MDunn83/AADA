@@ -21,12 +21,12 @@ AADA is a multi-model AI pipeline that stress-tests responses by automatically r
 
 Most AI tools give you a confident answer. AADA gives you a **battle-tested** one.
 
-V3.5 runs up to three competing models (Claude, Gemini, GPT-4o) across four modes. In Fast 3 and Deep 3, Gemini and GPT-4o critique simultaneously — neither sees the other's output. An optional routing call evaluates critic disagreement after pass 1 and automatically triggers a second pass, if warranted. An optional disagreement analysis provides insight into exactly how the pipeline arrived at its final answer.
+V3.5 runs up to three competing models (Claude, Gemini, GPT-4o) across four modes. In Fast 3 and Deep 3, Gemini and GPT-4o critique simultaneously and neither sees the other's output. An optional routing call evaluates critic disagreement after pass 1 and automatically triggers a second pass, if warranted. An optional disagreement analysis provides insight into exactly how the pipeline arrived at its final answer.
 
 | Mode | Models | API Calls | Description |
 |------|--------|-----------|-------------|
 | **Fast 2** | Claude + Gemini | 3 | Claude answers → Gemini critiques → Claude revises |
-| **Deep 2** | Claude + Gemini | 5 | Two full adversarial passes — Gemini critiques the *revision*, not just the original |
+| **Deep 2** | Claude + Gemini | 5 | Two full adversarial passes where Gemini critiques the *revision*, not just the original |
 | **Fast 3** | Claude + Gemini + GPT-4o | 4–8 | Parallel critique, optional dynamic routing, optional analysis |
 | **Deep 3** | Claude + Gemini + GPT-4o | 7–11 | Two parallel passes, optional dynamic routing, optional analysis |
 
@@ -106,7 +106,7 @@ The routing decision is displayed visibly before the next step begins so you alw
 **What the pipeline caught (Fast 3 with analysis):**
 
 * Both Gemini and GPT-4o independently flagged that the referral rewards program language was potentially illegal under RESPA anti-kickback statutes. Claude reversed from recommending it to issuing an explicit warning with compliant alternatives.
-* Both critics caught that a single 10–20% conversion rate target was misleading — cold digital leads (Zillow, Realtor.com) convert at 1–3% while SOI/referral leads convert at 40–60%. Claude completely rebuilt the metrics table by source.
+* Both critics caught that a single 10–20% conversion rate target was misleading given cold digital leads (Zillow, Realtor.com) convert at 1–3% while SOI/referral leads convert at 40–60%. Claude completely rebuilt the metrics table by source.
 * Both critics flagged the NAR settlement buyer representation agreement omission. What was a single casual bullet became the structural anchor of the entire Conversion section.
 * The "80% of clients will refer" statistic was labeled an industry myth and corrected to 20–30% with an explanation of why referral intent rarely translates to referral action.
 
@@ -155,7 +155,7 @@ You'll be prompted for your query, mode selection, whether to enable dynamic rou
 streamlit run aada_streamlit_v35.py
 ```
 
-Opens automatically in your browser at `http://localhost:8501`. Leave the terminal window open while using it — closing it kills the app.
+Opens automatically in your browser at `http://localhost:8501`. Leave the terminal window open while using it.  Closing it kills the app.
 
 ---
 
