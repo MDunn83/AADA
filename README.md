@@ -2,7 +2,13 @@
 
 > *"Does your AI output seem "off"?  Stress test it."*
 
-AADA is a multi-model AI pipeline that stress-tests responses by automatically routing them through adversarial critique from competing AI models, then feeding those critiques back to the original model for a final, improved answer. The result is a more defensible, higher-confidence output than any single AI can produce alone and at a fraction of a cent per run.  While this doesn't eliminate hallucinations or inaccurate results, it's a practical mitigator, as long as you understand what data each AI tool you're using has been trained on. 
+Most AI tools give you a confident answer. AADA gives you a **battle-tested** one.
+ 
+AADA is a multi-model AI pipeline that stress-tests responses by automatically routing them through adversarial critique from competing AI models, then feeding those critiques back to the original model for a final, improved answer. The result is a more defensible, higher-confidence output than any single AI can produce alone, at a fraction of a cent per run.
+ 
+Built as a practical governance prototype, the pattern used here (multi-model critique, disagreement routing, audit trail) is directly analogous to how enterprise AI review systems work at scale.
+ 
+While this doesn't eliminate hallucinations or inaccurate results, it's a practical mitigator, as long as you understand what data each AI tool you're using has been trained on.
 
 ---
 
@@ -110,9 +116,37 @@ The routing decision is displayed visibly before the next step begins so you alw
 * Both critics flagged the NAR settlement buyer representation agreement omission. What was a single casual bullet became the structural anchor of the entire Conversion section.
 * The "80% of clients will refer" statistic was labeled an industry myth and corrected to 20–30% with an explanation of why referral intent rarely translates to referral action.
 
-**Total cost: $0.02945. Elapsed time: 97 seconds.**
+**Measured results:**
+ 
+| Metric | Result |
+|--------|--------|
+| Issues caught | 4 |
+| Legal compliance reversals | 1 (RESPA anti-kickback) |
+| Factual corrections | 2 (conversion rate table, referral statistic) |
+| Structural omissions caught | 1 (NAR settlement) |
+| Cost per run | $0.02945 |
+| Elapsed time | 97 seconds |
+| Passes taken | 1 (routing detected no pass 2 needed) |
+ 
+These are issues that could have led a user down a harmful, and in one case illegal, path. The original single-pass output returned all of them with confidence.
 
-These are MAJOR issues uncovered that the original output didn't acknowledge that could have lead a user down a terrible (and illegal) path.
+---
+
+## Prompt Architecture
+ 
+All five prompts live in `prompts.yaml` and are shared between the CLI and Streamlit UI. The critique prompt instructs critics to identify and label five specific failure categories:
+ 
+| Label | What it catches |
+|-------|----------------|
+| `FACTUAL ERRORS` | Claims that are incorrect or unsupported |
+| `MISSING CONTEXT` | Important information that was omitted |
+| `OVERCONFIDENCE` | Statements presented as certain when they are not |
+| `WEAK REASONING` | Logical gaps or unsupported conclusions |
+| `BLIND SPOTS` | Perspectives or risks that were not considered |
+ 
+The routing prompt enforces a strict binary judgment with a named definition of "material disagreement", preventing the router from triggering a second pass on minor wording differences. It returns structured JSON only, with a hard fallback to no second pass if parsing fails.
+ 
+These prompts are fully configurable without touching any Python code.
 
 ---
 
@@ -270,6 +304,26 @@ Stages not used by the selected mode are written as `null`. The `disagreement_an
 All three API clients (Anthropic, Google, OpenAI) retry failed calls up to 3 times with exponential backoff (2s, 4s, 8s). A single transient failure will not crash the pipeline unless all three attempts fail.
 
 ---
+ 
+## Known Limitations
+ 
+- **Self-evaluation bias:** The routing call uses Claude to evaluate critic disagreement about Claude's own output. A model assessing criticism of itself introduces known bias.  This is documented, but not addressed.
+- **Training data overlap:** Claude, Gemini, and GPT-4o share some training data. True independence between critics cannot be guaranteed.
+- **Hard 2-pass cap:** Cost control wins over thoroughness. A genuinely unresolved disagreement after pass 2 is finalized anyway.
+- **No ground truth:** There is no oracle. AADA improves confidence and surfaces risks, but it doesn't guarantee correctness.
+- **Domain expertise gap:** The critique prompts are general purpose. Domain-specific errors (legal, medical, financial) may require domain-specific prompt tuning to catch reliably.
+  
+---
+
+## Why Multiple Models?
+
+Single-model AI has a known failure mode: it's a confident "yes-man." It answers in the direction of your question, fills gaps with plausible-sounding assumptions, and rarely volunteers what it doesn't know.
+
+AADA exploits the fact that Claude, Gemini, and GPT-4o are trained differently, on different data, with different tendencies. Disagreement between them is a signal where either one is wrong, or the question is genuinely uncertain. Either way, you want to know before you act.
+
+The goal isn't perfection. It's a response you can actually defend.
+
+---
 
 ## Full Roadmap
 
@@ -283,16 +337,6 @@ All three API clients (Anthropic, Google, OpenAI) retry failed calls up to 3 tim
 | **V3.5** | Dynamic routing — automatic second pass triggered by critic disagreement | ✅ Current |
 | **V4** | Web application — browser UI, user auth, report history, streaming output | 🔜 Next |
 | **V5** | Commercial product — billing, public API, team collaboration, export options | 📋 Planned |
-
----
-
-## Why Multiple Models?
-
-Single-model AI has a known failure mode: it's a confident "yes-man." It answers in the direction of your question, fills gaps with plausible-sounding assumptions, and rarely volunteers what it doesn't know.
-
-AADA exploits the fact that Claude, Gemini, and GPT-4o are trained differently, on different data, with different tendencies. Disagreement between them is a signal where either one is wrong, or the question is genuinely uncertain. Either way, you want to know before you act.
-
-The goal isn't perfection. It's a response you can actually defend.
 
 ---
 
